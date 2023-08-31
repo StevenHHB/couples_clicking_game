@@ -1,2 +1,0 @@
-# couples_clicking_game
-couples_clicking_game
