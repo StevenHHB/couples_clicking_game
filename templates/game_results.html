@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Results</title>
+</head>
+<body>
+    <h1>Game Results History</h1>
+    {% if game_sessions %}
+        <ul>
+            {% for session in game_sessions %}
+                <li>
+                    <p>Game Session {{ session.id }}</p>
+                    <p>Your result: {{ determine_winner(session, current_user.id) }}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No game results available.</p>
+    {% endif %}
+</body>
+</html>
