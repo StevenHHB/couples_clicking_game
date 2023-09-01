@@ -1,0 +1,27 @@
+{% block content %}
+  <h1>Welcome, {{ user.username }}!</h1>
+  
+  <!-- Game Interface Section -->
+  <section>
+    <h2>Play the Game</h2>
+    <!-- Game interface content here -->
+  </section>
+  
+  <!-- Previous Game Results and Prize Selection Section -->
+  <section>
+    <h2>Previous Game Results</h2>
+    {% include 'game_results.html' %}
+  </section>
+  
+ 
+  
+  <!-- Common Features (Logout) -->
+  <section>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </section>
+  
+  <!-- Significant Other's Username Section -->
+  <section>
+    <p>Significant Other: {{ user.significant_other_id.username }}</p>
+  </section>
+{% endblock %}

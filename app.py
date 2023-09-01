@@ -1,4 +1,4 @@
-from models import User, GameResult, GameSession, Click
+from models import User, GameResult, GameSession, Click, Prize, db
 
 from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -9,21 +9,36 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 
 import secrets
-
-
 secret_key = secrets.token_hex(16)
 
+
+SQLALCHEMY_DATABASE_URI = 'sqlite:///couples_clicking_game.db'
+SECRET_KEY = secret_key
+
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = secret_key
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///couples_clicking_game.db'
-db = SQLAlchemy(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+app.config['SECRET_KEY'] = SECRET_KEY
+db.init_app(app)
+
 migrate = Migrate(app, db)
 
 
 login_manager = LoginManager(app)  # Initialize LoginManager
 login_manager.login_view = 'login'  # Set the login view endpoint
 
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
 bcrypt = Bcrypt(app)
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 
 @app.route('/register', methods=list(['GET', 'POST']))
@@ -68,79 +83,7 @@ def login():
 def profile():
     user = current_user
 
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
-
-
-@app.route('/start_game', methods=['POST'])
-@login_required
-def start_game():
-    # Logic to start a new game session and set up initial values
-    new_game_session = GameSession(
-        start_time=datetime.now(), end_time=datetime.now() + timedelta(days=1))
-    db.session.add(new_game_session)
-    db.session.commit()
-    flash('New game session started!', 'success')
-    return redirect(url_for('game_interface'))
-
-
-@app.route('/click_button', methods=['POST'])
-@login_required
-def click_button():
-    # Logic to handle a user's button click
-    current_game_session = GameSession.query.filter_by(
-        end_time >= datetime.now()).first()
-    if current_game_session:
-        new_click = Click(user_id=current_user.id,
-                          game_session_id=current_game_session.id, timestamp=datetime.now())
-        db.session.add(new_click)
-        db.session.commit()
-        flash('Button clicked!', 'success')
-    return redirect(url_for('game_interface'))
-
-
-# compare game results
-def determine_winner(game_session, user_id):
-    user_clicks = len(
-        [click for click in game_session.clicks if click.user_id == user_id])
-    significant_other_clicks = len(
-        [click for click in game_session.clicks if click.user_id == current_user.significant_other_id])
-
-    if user_clicks > significant_other_clicks:
-        return 'Winner'
-    elif user_clicks < significant_other_clicks:
-        return 'Loser'
-    else:
-        return 'Tie'
-
-
-@app.route('/game_results')
-@login_required
-def game_results():
-    # Logic to display the results of the most recent game
-    most_recent_game_session = GameSession.query.order_by(
-        GameSession.id.desc()).first()
-    if most_recent_game_session:
-        user_results = determine_winner(
-            game_session=most_recent_game_session, user_id=current_user.id)
-        results = {
-            'start_time': most_recent_game_session.start_time,
-            'end_time': most_recent_game_session.end_time,
-            'clicks': len(most_recent_game_session.clicks),
-            'user_results': user_results,
-        }
-    else:
-        results = None
-    return render_template('game_results.html', results=results)
-
-
-@app.route('/game_history')
-@login_required
-def game_history():
+    # Get the user's game history
     user_game_sessions = GameSession.query.filter(
         GameSession.clicks.any(user_id=current_user.id)
     ).order_by(GameSession.id.desc()).all()
@@ -173,7 +116,91 @@ def game_history():
             'satisfied_prizes': satisfied_prizes,
         })
 
-    return render_template('game_history.html', history=history)
+    return render_template('home.html', user=user, history=history)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+
+@app.route('/start_game', methods=['POST'])
+@login_required
+def start_game():
+    # Logic to start a new game session and set up initial values
+    new_game_session = GameSession(
+        start_time=datetime.now(), end_time=datetime.now() + timedelta(days=1))
+    db.session.add(new_game_session)
+    db.session.commit()
+    flash('New game session started!', 'success')
+    return redirect(url_for('game_interface'))
+
+
+@app.route('/click_button', methods=['POST'])
+@login_required
+def click_button():
+    # Logic to handle a user's button click
+    current_game_session = GameSession.query.filter(
+        GameSession.end_time >= datetime.now()
+    ).first()
+    if current_game_session:
+        new_click = Click(
+            user_id=current_user.id,
+            game_session_id=current_game_session.id,
+            timestamp=datetime.now()
+        )
+        db.session.add(new_click)
+        db.session.commit()
+        click_count = len(current_game_session.clicks)
+        flash('Button clicked!', 'success')
+        return {'success': True, 'clicks': click_count}
+    return {'success': False}
+
+
+# compare game results
+def determine_winner(game_session, user_id):
+    user_clicks = len(
+        [click for click in game_session.clicks if click.user_id == user_id])
+    significant_other_clicks = len(
+        [click for click in game_session.clicks if click.user_id == current_user.significant_other_id])
+
+    if user_clicks > significant_other_clicks:
+        return 'Winner'
+    elif user_clicks < significant_other_clicks:
+        return 'Loser'
+    else:
+        return 'Tie'
+
+
+@app.route('/game_results')
+@login_required
+def game_results():
+    # Logic to display the results of the most recent game
+    most_recent_game_session = GameSession.query.order_by(
+        GameSession.id.desc()).first()
+
+    if most_recent_game_session:
+        user_results = determine_winner(
+            game_session=most_recent_game_session, user_id=current_user.id)
+
+        significant_other_id = current_user.significant_other_id
+        significant_other_clicks = len(
+            [click for click in most_recent_game_session.clicks if click.user_id == significant_other_id])
+
+        results = {
+            'start_time': most_recent_game_session.start_time,
+            'end_time': most_recent_game_session.end_time,
+            'clicks': len(most_recent_game_session.clicks),
+            'significant_other_clicks': significant_other_clicks,
+            'user_results': user_results,
+            'game_result_id': most_recent_game_session.game_results[-1].id if most_recent_game_session.game_results else None,
+        }
+    else:
+        results = None
+
+    return render_template('game_results.html', results=results)
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -212,3 +239,11 @@ def select_prize(game_result_id, prize_id):
         flash('Invalid selection.', 'error')
 
     return redirect(url_for('game_results'))
+
+
+if __name__ == '__main__':
+    # Create the database tables
+    with app.app_context():
+        db.create_all()
+
+    app.run(debug=True)

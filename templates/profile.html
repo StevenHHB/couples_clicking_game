@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+</head>
+<body>
+    <h1>Welcome, {{ user.username }}!</h1>
+    <p>Here, you can view your profile information and game history.</p>
+    
+    {% if user.id == current_user.id %}
+    <!-- Display game history only for the logged-in user -->
+    <h2>Your Game History</h2>
+    <table>
+        <tr>
+            <th>Date</th>
+            <th>Clicks</th>
+            <th>Results</th>
+            <th>Prizes</th>
+            <th>Satisfied Prizes</th>
+        </tr>
+        {% for session in history %}
+        <tr>
+            <td>{{ session.start_time }}</td>
+            <td>{{ session.clicks }}</td>
+            <td>{{ session.user_results }}</td>
+            <td>{{ ', '.join(session.prizes) }}</td>
+            <td>
+                {% for prize in session.satisfied_prizes %}
+                    {{ prize.description }}{% if prize.satisfied %} (Satisfied){% endif %}
+                    <br>
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+    
+    <a href="{{ url_for('logout') }}">Logout</a>
+</body>
+</html>
