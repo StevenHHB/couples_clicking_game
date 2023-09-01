@@ -1,16 +1,24 @@
+<link rel="stylesheet" href="../static/css/styles.css">
 {% block content %}
   <h1>Welcome, {{ user.username }}!</h1>
   
   <!-- Game Interface Section -->
   <section>
     <h2>Play the Game</h2>
+    {% if user.id == current_user.id %}
+      <!-- Display game interface only for the logged-in user -->
+      {% include 'game_interface.html' %}
+    {% endif %}
     <!-- Game interface content here -->
   </section>
   
   <!-- Previous Game Results and Prize Selection Section -->
   <section>
     <h2>Previous Game Results</h2>
-    {% include 'game_results.html' %}
+    {% if user.id == current_user.id %}
+      <!-- Display game results only for the logged-in user -->
+      {% include 'game_results.html' %}
+    {% endif %}
   </section>
   
  
@@ -23,5 +31,9 @@
   <!-- Significant Other's Username Section -->
   <section>
     <p>Significant Other: {{ user.significant_other_id.username }}</p>
+    {% if user.id == current_user.id %}
+      <!-- Display search form only for the logged-in user -->
+      {% include 'search.html' %}
+    {% endif %}
   </section>
 {% endblock %}
